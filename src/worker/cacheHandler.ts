@@ -4,7 +4,6 @@ import { LocationData } from "../types/locationData";
 class CacheHandler {
   private redisClient;
   private geoKey = "userLocations"; 
-  // ye geoKey change krna har user ke acc.for eg SID 
 
   constructor() {
     this.redisClient = createClient();
