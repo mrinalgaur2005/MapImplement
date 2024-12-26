@@ -18,8 +18,10 @@
         "name": "next"
       }
     ],
+    "baseUrl": ".",  // Set the base directory for relative paths
     "paths": {
-      "@/*": ["./*"]
+      "@component/*": ["component/*"], // Map @components to the components folder
+      "@/*": ["./*"] // Retain the root alias if needed
     }
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
