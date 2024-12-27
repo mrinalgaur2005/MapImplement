@@ -1,27 +1,29 @@
-import mongoose from "mongoose";
+import mongoose from 'mongoose';
 
-type ConnectionObject={
-    isConnected?:number
-}
+type ConnectionObject = {
+  isConnected?: number;
+};
 
-const connection : ConnectionObject = {}
+const connection: ConnectionObject = {};
 
 async function dbConnect(): Promise<void> {
-    if(connection.isConnected){
-        console.log("Already Connected");
-        return
-    }
-    try {
-        const db = await mongoose.connect(process.env.MONGO_DB_URI! || '')
-        // console.log(db.connections);
-        connection.isConnected=db.connections[0].readyState
-        console.log("DB succesfully connected");
-        
-    } catch (error) {
-        console.log("DB connection failed",error);
-        process.exit()
-    }
-}
+  if (connection.isConnected) {
+    console.log('Already connected to the database');
+    return;
+  }
 
+  if (!process.env.MONGO_DB_URI) {
+    throw new Error('Missing MONGO_DB_URI in environment variables');
+  }
+
+  try {
+    const db = await mongoose.connect(process.env.MONGO_DB_URI);
+    connection.isConnected = db.connections[0].readyState;
+    console.log('Database successfully connected:', db.connection.name);
+  } catch (error) {
+    console.error('DB connection failed:', error);
+    throw error;
+  }
+}
 
 export default dbConnect;

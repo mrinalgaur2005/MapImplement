@@ -10,7 +10,6 @@ class CacheHandler {
     this.redisClient.connect().catch((err) => console.error("Redis connection error:", err));
   }
 
-  // Set location
   async setLocation(key: string, location: LocationData, ttl: number): Promise<void> {
     try {
       const { latitude, longitude } = location;
@@ -31,7 +30,6 @@ class CacheHandler {
     }
   }
 
-  // Get location
   async getLocation(key: string): Promise<LocationData | null> {
     try {
       const data = await this.redisClient.get(`location:${key}`);
@@ -42,7 +40,6 @@ class CacheHandler {
     }
   }
 
-  // Delete location
   async deleteLocation(key: string): Promise<void> {
     try {
       await this.redisClient.del(`location:${key}`);
@@ -51,7 +48,6 @@ class CacheHandler {
     }
   }
 
-  // Get nearby users within a radius
   async getNearbyUsers(
     latitude: number,
     longitude: number,
@@ -61,8 +57,8 @@ class CacheHandler {
       const nearbyUserIds = await this.redisClient.geoSearch(
         this.geoKey, 
         { latitude, longitude },
-        { radius, unit: "km" }
-        );
+        { radius, unit: "m" }
+      );
 
       if (!nearbyUserIds || nearbyUserIds.length === 0) {
         return [];
@@ -72,43 +68,11 @@ class CacheHandler {
       const results = await this.redisClient.mGet(keys);
 
       return results
-        .filter((result) => result !== null) 
+        .filter((result) => result !== null)
         .map((result) => JSON.parse(result as string));
     } catch (error) {
       console.error("Error getting nearby users:", error);
       return [];
-    }
-  }
-
-
-  //update multiple locations
-  async batchUpdateLocations(
-    locations: { key: string; data: LocationData }[],
-    ttl: number
-  ): Promise<void> {
-    try {
-      const pipeline = this.redisClient.multi();
-
-      locations.forEach(({ key, data }) => {
-        const { latitude, longitude } = data;
-
-        pipeline.geoAdd(this.geoKey, {
-          member: key,
-          latitude,
-          longitude,
-        });
-
-        pipeline.setEx(
-          `location:${key}`,
-          ttl,
-          JSON.stringify(data)
-        );
-      });
-
-      await pipeline.exec(); 
-      console.log("Batch update completed.");
-    } catch (error) {
-      console.error("Error performing batch update:", error);
     }
   }
 }

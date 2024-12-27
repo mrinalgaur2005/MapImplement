@@ -1,4 +1,4 @@
-'use client'
+/*'use client'
 
 import React, { useState } from 'react'
 
@@ -48,4 +48,4 @@ const AddMarkerForm: React.FC<AddMarkerFormProps> = ({ onAddMarker }) => {
   )
 }
 
-export default AddMarkerForm
+export default AddMarkerForm*/
