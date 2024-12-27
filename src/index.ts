@@ -9,7 +9,8 @@ const queueHandler = new QueueHandler();
 const friendDataHandler = new FriendDataHandler();
 const cacheHandler = new CacheHandler();
 
-const LOCATION_UPDATE_INTERVAL = 5 * 60 * 1000; // 5 minutes interval
+const LOCATION_UPDATE_INTERVAL = 1000; // Check every second
+const PROCESSING_TIMEOUT = 5 * 60 * 1000; // 5 minutes timeout for processing
 
 io.on('connection', (socket) => {
   console.log('A user connected');
@@ -18,33 +19,45 @@ io.on('connection', (socket) => {
     try {
       const { username, latitude, longitude } = data;
 
-      ///user into cache put krdia
+      //user into cache
       await cacheHandler.setLocation(username, { username, latitude, longitude }, 600);
 
-      const friends = await friendDataHandler.getFriends(username);
+      // Get friends' location data
+      const friendsData = await friendDataHandler.getFriends(username);
+      const latitudeData = [];
 
-      //data into queue put krdia
-      for (const friend of friends) {
+      //data of frineds
+      for (const friend of friendsData) {
         const friendLocation = await cacheHandler.getLocation(friend.sid);
         if (friendLocation) {
-          await queueHandler.enqueueLocationUpdate(friend.sid, friendLocation.latitude, friendLocation.longitude);
+          latitudeData.push({
+            username: friend.sid,
+            latitude: friendLocation.latitude,
+            longitude: friendLocation.longitude
+          });
         }
       }
 
-      console.log('Location update added to the queue');
+      //queue me add
+      await queueHandler.enqueueLocationUpdate(username, latitude, longitude, latitudeData);
+
+      console.log('Location update with friends\' data added to the global queue');
     } catch (error) {
       console.error('Error handling location update:', error);
     }
   });
 
-  //5 min me data dega ye
+  // Process the global queue every second
   setInterval(async () => {
     try {
       const queueSize = await queueHandler.getQueueSize();
       if (queueSize > 0) {
         console.log(`Queue size: ${queueSize} items waiting for processing`);
+
+        // Dequeue and send location update if the timeout has passed
         const locationData = await queueHandler.dequeueLocationUpdate();
         if (locationData) {
+          // Send location data to the user along with their friends' location data
           io.to(locationData.username).emit('locationData', locationData);
           console.log(`Sent location data to ${locationData.username}`);
         }
