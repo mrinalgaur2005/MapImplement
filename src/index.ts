@@ -1,10 +1,10 @@
-import { app, io } from './app'; 
+import { app, io } from './app';
 import QueueHandler from './worker/queueHandler';
 import FriendDataHandler from './worker/frinedsDataHandler';
 import CacheHandler from './worker/cacheHandler';
 import { LocationData } from './types/locationData';
+import { UserModel } from './models/User'; // Import your UserModel here
 
-// Initialize handlers
 const queueHandler = new QueueHandler();
 const friendDataHandler = new FriendDataHandler();
 const cacheHandler = new CacheHandler();
@@ -19,28 +19,36 @@ io.on('connection', (socket) => {
     try {
       const { username, latitude, longitude } = data;
 
-      //user into cache
-      await cacheHandler.setLocation(username, { username, latitude, longitude }, 600);
+      // Fetch user data from UserModel
+      const user = await UserModel.findOne({ username });
+      if (!user) {
+        console.error('User not found');
+        return;
+      }
 
-      // Get friends' location data
+      if (user.isLocationAccess) {
+        // Set the user's location into the cache with a TTL of 600 seconds
+        await cacheHandler.setLocation(username, { username, latitude, longitude }, 600);
+      }
+
+      // Get the friends' data
       const friendsData = await friendDataHandler.getFriends(username);
-      const latitudeData = [];
+      const latitudeData: { username: string, latitude: number, longitude: number }[] = [];
 
-      //data of frineds
+      // Fetch each friend's location from the cache
       for (const friend of friendsData) {
-        const friendLocation = await cacheHandler.getLocation(friend.sid);
+        const friendLocation = await cacheHandler.getLocation(friend.username);
         if (friendLocation) {
           latitudeData.push({
-            username: friend.sid,
+            username: friend.username,
             latitude: friendLocation.latitude,
-            longitude: friendLocation.longitude
+            longitude: friendLocation.longitude,
           });
         }
       }
 
-      //queue me add
+      // Add location update to the global queue
       await queueHandler.enqueueLocationUpdate(username, latitude, longitude, latitudeData);
-
       console.log('Location update with friends\' data added to the global queue');
     } catch (error) {
       console.error('Error handling location update:', error);
@@ -54,10 +62,9 @@ io.on('connection', (socket) => {
       if (queueSize > 0) {
         console.log(`Queue size: ${queueSize} items waiting for processing`);
 
-        // Dequeue and send location update if the timeout has passed
+        // Dequeue location update and send location data to the user along with friends' location
         const locationData = await queueHandler.dequeueLocationUpdate();
         if (locationData) {
-          // Send location data to the user along with their friends' location data
           io.to(locationData.username).emit('locationData', locationData);
           console.log(`Sent location data to ${locationData.username}`);
         }
@@ -68,9 +75,4 @@ io.on('connection', (socket) => {
       console.error('Error processing location updates:', error);
     }
   }, LOCATION_UPDATE_INTERVAL);
-});
-
-// Start the server
-app.listen(3000, () => {
-  console.log('Server is running on port 3000');
 });

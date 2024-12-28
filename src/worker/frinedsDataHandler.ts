@@ -2,10 +2,10 @@ import { StudentModel } from '../models/User';
 
 class FriendDataHandler {
 
-  async getFriends(sid: string): Promise<{ sid: string }[]> {
+  async getFriends(username: string): Promise<{ username:string }[]> {
     try {
       const result = await StudentModel.aggregate([
-        { $match: { student_id: sid } },
+        { $match: { name:username } },
         { $unwind: "$friends" },
         {
           $lookup: {
@@ -23,12 +23,12 @@ class FriendDataHandler {
         }
       ]);
       if (result.length === 0) {
-        throw new Error(`Student with student_id ${sid} not found`);
+        throw new Error(`Student with student_id ${username} not found`);
       }
-      return result.map((friend) => ({ sid: friend.sid }));
+      return result.map((friend) => ({ username: friend.username }));
     } catch (error) {
       console.error('Error fetching friends:', error);
-      throw new Error(`Error fetching friends for student_id ${sid}: ${(error as any).message}`);
+      throw new Error(`Error fetching friends for student_id ${username}: ${(error as any).message}`);
     }
   }
 }
