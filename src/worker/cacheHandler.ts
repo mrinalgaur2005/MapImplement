@@ -25,6 +25,8 @@ class CacheHandler {
         ttl,
         JSON.stringify(location)
       );
+      console.log("Data stored in cache success");
+      
     } catch (error) {
       console.error("Error setting location in Redis:", error);
     }
