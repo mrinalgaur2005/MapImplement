@@ -1,63 +1,34 @@
-import { createClient } from 'redis';
+import { StudentModel } from '../models/User';
 
 class FriendDataHandler {
-  private redisClient;
-  private friendsKeyPrefix = 'userFriends:';
 
-  constructor() {
-    this.redisClient = createClient();
-    this.redisClient.connect().catch((err) => console.error('Redis connection error:', err));
-  }
-
-  async addFriend(username: string, friendId: string): Promise<void> {
+  async getFriends(sid: string): Promise<{ sid: string }[]> {
     try {
-      const userFriendsKey = `${this.friendsKeyPrefix}${username}`;
-      const friendFriendsKey = `${this.friendsKeyPrefix}${friendId}`;
-
-      await this.redisClient.sAdd(userFriendsKey, friendId);
-      await this.redisClient.sAdd(friendFriendsKey, username);
-
-      console.log(`User ${username} and ${friendId} are now friends`);
+      const result = await StudentModel.aggregate([
+        { $match: { student_id: sid } },
+        { $unwind: "$friends" },
+        {
+          $lookup: {
+            from: 'students',
+            localField: 'friends',
+            foreignField: '_id',
+            as: 'friendDetails'
+          }
+        },
+        {
+          $project: {
+            _id: 0,
+            sid: { $arrayElemAt: ["$friendDetails.student_id", 0] }
+          }
+        }
+      ]);
+      if (result.length === 0) {
+        throw new Error(`Student with student_id ${sid} not found`);
+      }
+      return result.map((friend) => ({ sid: friend.sid }));
     } catch (error) {
-      console.error('Error adding friend:', error);
-    }
-  }
-
-  async removeFriend(username: string, friendId: string): Promise<void> {
-    try {
-      const userFriendsKey = `${this.friendsKeyPrefix}${username}`;
-      const friendFriendsKey = `${this.friendsKeyPrefix}${friendId}`;
-
-      await this.redisClient.sRem(userFriendsKey, friendId);
-      await this.redisClient.sRem(friendFriendsKey, username);
-
-      console.log(`User ${username} and ${friendId} are no longer friends`);
-    } catch (error) {
-      console.error('Error removing friend:', error);
-    }
-  }
-
-  async getFriends(userId: string): Promise<string[]> {
-    try {
-      const userFriendsKey = `${this.friendsKeyPrefix}${userId}`;
-      const friends = await this.redisClient.sMembers(userFriendsKey);
-
-      return friends;
-    } catch (error) {
-      console.error('Error getting friends:', error);
-      return [];
-    }
-  }
-
-  async areFriends(username: string, friendId: string): Promise<boolean> {
-    try {
-      const userFriendsKey = `${this.friendsKeyPrefix}${username}`;
-      const isFriend = await this.redisClient.sIsMember(userFriendsKey, friendId);
-
-      return isFriend;
-    } catch (error) {
-      console.error('Error checking friendship:', error);
-      return false;
+      console.error('Error fetching friends:', error);
+      throw new Error(`Error fetching friends for student_id ${sid}: ${(error as any).message}`);
     }
   }
 }
