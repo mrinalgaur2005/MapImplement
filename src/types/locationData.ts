@@ -1,5 +1,5 @@
 export interface LocationData {
-    username: string;
+    student_id: string;
     latitude: number;
     longitude: number;
   }
