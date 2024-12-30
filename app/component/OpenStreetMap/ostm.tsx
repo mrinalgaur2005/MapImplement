@@ -21,9 +21,8 @@ const OpenStreetmap: React.FC = () => {
   const [studentId, setStudentId] = useState<string>('') 
   const wsRef = useRef<WebSocket | null>(null) 
 
+  const userLocationRef = useRef<LatLngExpression | null>(null); // UseRef to store userLocation
   const ZOOM_LEVEL = 17
-
-  
 
   useEffect(() => {
     const socket = new WebSocket('ws://localhost:3000')
@@ -47,17 +46,19 @@ const OpenStreetmap: React.FC = () => {
 
           console.log(`ws state is ${wsRef.current?.readyState}`);
           
-          
           console.log(userLocation);
-    
-          if (wsRef.current?.readyState === WebSocket.OPEN && userLocation) {
+
+          // Ensure the location is available before sending
+          if (wsRef.current?.readyState === WebSocket.OPEN && userLocationRef.current) {
             const locationData = {
               student_id: studentId,
-              latitude: userLocation.lat,
-              longitude: userLocation.long,
+              latitude: userLocationRef.current.lat,
+              longitude: userLocationRef.current.lng,
             }
             wsRef.current.send(JSON.stringify(locationData))
             console.log('Sent location data after:', locationData)
+          } else {
+            console.log('User location is not yet available')
           }
         }
       } catch (error) {
@@ -71,9 +72,10 @@ const OpenStreetmap: React.FC = () => {
 
     return () => {
       if (socket.readyState === WebSocket.OPEN) {
+        socket.close()
       }
     }
-  }, [])
+  }, [studentId]) // Dependency on studentId to ensure the socket logic runs properly
 
   useEffect(() => {
     const storedStudentId = localStorage.getItem('studentId') || '23104073'
@@ -83,6 +85,8 @@ const OpenStreetmap: React.FC = () => {
       const userLoc = { lat: position.coords.latitude, lng: position.coords.longitude }
       console.log(userLoc)
       setUserLocation(userLoc)
+      userLocationRef.current = userLoc; // Update the userLocationRef
+
       setCenter(userLoc)
 
       if (wsRef.current?.readyState === WebSocket.OPEN) {
@@ -107,7 +111,7 @@ const OpenStreetmap: React.FC = () => {
         maximumAge: 0,
       })
     }
-  }, [studentId]) 
+  }, []) // Dependency on studentId to ensure geolocation works properly
 
   const customIcon = new L.Icon({
     iconUrl: 'https://www.maptive.com/wp-content/uploads/2020/10/Marker-Color-_-Grouping-Tool-2.svg',
@@ -147,4 +151,3 @@ const OpenStreetmap: React.FC = () => {
 }
 
 export default OpenStreetmap
-
