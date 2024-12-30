@@ -15,20 +15,19 @@ interface MarkerData {
 }
 
 const OpenStreetmap: React.FC = () => {
-  const [center, setCenter] = useState<LatLngExpression>({ lat: 30.7652305, lng: 76.7846207 }) // Default fallback location
+  const [center, setCenter] = useState<LatLngExpression>({ lat: 30.7652305, lng: 76.7846207 }) 
   const [userLocation, setUserLocation] = useState<LatLngExpression | null>(null)
   const [markers, setMarkers] = useState<MarkerData[]>([])
-  const [studentId, setStudentId] = useState<string>('') // Replace with actual user ID logic
-  const wsRef = useRef<WebSocket | null>(null) // Ref to track WebSocket instance
+  const [studentId, setStudentId] = useState<string>('') 
+  const wsRef = useRef<WebSocket | null>(null) 
 
   const ZOOM_LEVEL = 17
 
   
 
-  // WebSocket setup
   useEffect(() => {
     const socket = new WebSocket('ws://localhost:3000')
-    wsRef.current = socket // Assign the WebSocket instance to the ref
+    wsRef.current = socket 
 
     socket.onopen = () => {
       console.log('Connected to WebSocket server')
@@ -42,7 +41,7 @@ const OpenStreetmap: React.FC = () => {
         if (data.latitudeData.length !== 0) {
           const markersWithUUID = data.latitudeData.map((marker: any) => ({
             ...marker,
-            uuid: uuidv4(), // Add a unique UUID for each marker
+            uuid: uuidv4(),
           }))
           setMarkers((prevMarkers) => [...prevMarkers, ...markersWithUUID])
 
@@ -70,14 +69,12 @@ const OpenStreetmap: React.FC = () => {
       console.error('WebSocket error:', error)
     }
 
-    // Cleanup WebSocket on component unmount
     return () => {
       if (socket.readyState === WebSocket.OPEN) {
       }
     }
-  }, []) // Run once on component mount
+  }, [])
 
-  // Handle user's geolocation with continuous updates (watch position)
   useEffect(() => {
     const storedStudentId = localStorage.getItem('studentId') || '23104073'
     setStudentId(storedStudentId)
@@ -88,7 +85,6 @@ const OpenStreetmap: React.FC = () => {
       setUserLocation(userLoc)
       setCenter(userLoc)
 
-      // Send location data if WebSocket is open and ready
       if (wsRef.current?.readyState === WebSocket.OPEN) {
         const locationData = {
           student_id: storedStudentId,
@@ -111,9 +107,8 @@ const OpenStreetmap: React.FC = () => {
         maximumAge: 0,
       })
     }
-  }, [studentId]) // Depend on studentId only
+  }, [studentId]) 
 
-  // Custom marker icon
   const customIcon = new L.Icon({
     iconUrl: 'https://www.maptive.com/wp-content/uploads/2020/10/Marker-Color-_-Grouping-Tool-2.svg',
     iconSize: [32, 32],
