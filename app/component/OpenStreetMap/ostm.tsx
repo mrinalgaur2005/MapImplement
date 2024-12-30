@@ -75,7 +75,7 @@ const OpenStreetmap: React.FC = () => {
         socket.close()
       }
     }
-  }, [studentId]) // Dependency on studentId to ensure the socket logic runs properly
+  }, [studentId]) 
 
   useEffect(() => {
     const storedStudentId = localStorage.getItem('studentId') || '23104073'
@@ -111,7 +111,7 @@ const OpenStreetmap: React.FC = () => {
         maximumAge: 0,
       })
     }
-  }, []) // Dependency on studentId to ensure geolocation works properly
+  }, [])
 
   const customIcon = new L.Icon({
     iconUrl: 'https://www.maptive.com/wp-content/uploads/2020/10/Marker-Color-_-Grouping-Tool-2.svg',
