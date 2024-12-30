@@ -23,8 +23,6 @@ const OpenStreetmap: React.FC = () => {
 
   const ZOOM_LEVEL = 17
 
-  
-
   // WebSocket setup
   useEffect(() => {
     const socket = new WebSocket('ws://localhost:3000')
@@ -36,30 +34,30 @@ const OpenStreetmap: React.FC = () => {
 
     socket.onmessage = (event) => {
       try {
-        console.log('Received data:', event.data)
         const data = JSON.parse(event.data)
 
-        if (data.latitudeData.length !== 0) {
+        if (data.type === 'activeUsers') {
+          // Handle active users broadcast
+          const activeUserIds = data.activeUsers
+          setMarkers((prevMarkers) =>
+            prevMarkers.filter((marker) => activeUserIds.includes(marker.student_id))
+          )
+        }
+
+        if (data.latitudeData && data.latitudeData.length !== 0) {
+          // Handle latitude data (friends' locations)
           const markersWithUUID = data.latitudeData.map((marker: any) => ({
             ...marker,
             uuid: uuidv4(), // Add a unique UUID for each marker
           }))
-          setMarkers((prevMarkers) => [...prevMarkers, ...markersWithUUID])
 
-          console.log(`ws state is ${wsRef.current?.readyState}`);
-          
-          
-          console.log(userLocation);
-    
-          if (wsRef.current?.readyState === WebSocket.OPEN && userLocation) {
-            const locationData = {
-              student_id: studentId,
-              latitude: userLocation.lat,
-              longitude: userLocation.long,
-            }
-            wsRef.current.send(JSON.stringify(locationData))
-            console.log('Sent location data after:', locationData)
-          }
+          setMarkers((prevMarkers) => {
+            // Avoid duplicates
+            const newMarkers = markersWithUUID.filter(
+              (newMarker) => !prevMarkers.some((prevMarker) => prevMarker.student_id === newMarker.student_id)
+            )
+            return [...prevMarkers, ...newMarkers]
+          })
         }
       } catch (error) {
         console.error('Error parsing WebSocket message:', error)
@@ -73,6 +71,7 @@ const OpenStreetmap: React.FC = () => {
     // Cleanup WebSocket on component unmount
     return () => {
       if (socket.readyState === WebSocket.OPEN) {
+        socket.close()
       }
     }
   }, []) // Run once on component mount
@@ -84,7 +83,6 @@ const OpenStreetmap: React.FC = () => {
 
     const geoSuccess = (position: GeolocationPosition) => {
       const userLoc = { lat: position.coords.latitude, lng: position.coords.longitude }
-      console.log(userLoc)
       setUserLocation(userLoc)
       setCenter(userLoc)
 
@@ -96,7 +94,6 @@ const OpenStreetmap: React.FC = () => {
           longitude: position.coords.longitude,
         }
         wsRef.current.send(JSON.stringify(locationData))
-        console.log('Sent location data:', locationData)
       }
     }
 
@@ -152,4 +149,3 @@ const OpenStreetmap: React.FC = () => {
 }
 
 export default OpenStreetmap
-
