@@ -15,7 +15,7 @@ const Index: React.FC = () => {
   return (
     <>
       <h1 className="text-center">OpenStreetMap</h1>
-      <OpenStreetmap markers={markers} />
+      <OpenStreetmap />
     </>
   )
 }
