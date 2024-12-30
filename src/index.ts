@@ -1,4 +1,4 @@
-import { app, io } from './app';
+/*import { app,  } from './app';
 import QueueHandler from './worker/queueHandler';
 import FriendDataHandler from './worker/frinedsDataHandler';
 import CacheHandler from './worker/cacheHandler';
@@ -12,10 +12,10 @@ const cacheHandler = new CacheHandler();
 const LOCATION_UPDATE_INTERVAL = 1000; // Check every second
 const PROCESSING_TIMEOUT = 5 * 60 * 1000; // 5 minutes timeout for processing
 
-io.on('connection', (socket) => {
-  console.log('A user connected');
+/*io.on('connection', (socket) => {
+  console.log('A user connected');*/
 
-  socket.on('locationUpdate', async (data: LocationData) => {
+  /*socket.on('locationUpdate', async (data: LocationData) => {
     try {
       const { username, latitude, longitude } = data;
 
@@ -76,3 +76,4 @@ io.on('connection', (socket) => {
     }
   }, LOCATION_UPDATE_INTERVAL);
 });
+*/

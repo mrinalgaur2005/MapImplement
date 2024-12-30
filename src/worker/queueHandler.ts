@@ -14,7 +14,7 @@ class QueueHandler {
       const timestamp = Date.now();
       const locationUpdate = JSON.stringify({ student_id, latitude, longitude, latitudeData, timestamp });
       await this.redisClient.rPush(this.queueKey, locationUpdate);
-      console.log(`Location update for ${student_id} added to the global queue with timestamp ${timestamp}`);
+      console.log(`Location update for ${student_id}`);
     } catch (error) {
       console.error('Error enqueuing location update:', error);
     }

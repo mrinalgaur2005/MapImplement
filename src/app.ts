@@ -1,11 +1,10 @@
 import express from 'express';
 import { createServer } from 'http';
-import { WebSocket, WebSocketServer } from 'ws';
+import { WebSocket, WebSocketServer } from 'ws'; // This imports the WebSocket class from the ws library
 import QueueHandler from './worker/queueHandler';
 import FriendDataHandler from './worker/frinedsDataHandler';
 import CacheHandler from './worker/cacheHandler';
 import { LocationData } from './types/locationData';
-import { StudentModel, UserModel } from './models/User';
 import dotenv from 'dotenv';
 import dbConnect from './db/connectDb';
 import { studentData } from './testData/studentData';
@@ -14,53 +13,44 @@ dotenv.config();
 
 const app = express();
 const server = createServer(app);
-const wss = new WebSocketServer({ server });
+const wss = new WebSocketServer({ server }); // WebSocket server using ws library
 
 const queueHandler = new QueueHandler();
 const friendDataHandler = new FriendDataHandler();
 const cacheHandler = new CacheHandler();
 
-const LOCATION_UPDATE_INTERVAL = 1000; // Check every second
-const PORT = 3000; // Server port
+const PORT = 3000; 
 
-const clientsMap: Map<string, WebSocket> = new Map(); //map for storing WebSocket with SID
+const clientsMap: Map<string, WebSocket> = new Map(); // Map to store WebSocket connections for each student ID
 
 app.use(express.json());
 
-wss.on('connection', (ws) => {
+app.get('/', (req, res) => {
+  res.send('Hello, World!');
+});
+
+wss.on('connection', (ws: WebSocket) => { // Explicitly typing the WebSocket as `WebSocket` from the ws library
   console.log('A user connected');
 
-  ws.on('message', async (message) => {
+  ws.on('message', async (message: any) => { // Typing message as string since it's JSON data
     try {
       await dbConnect();
-      const data: LocationData = JSON.parse(message.toString());
+      const data: LocationData = JSON.parse(message);
       const { student_id, latitude, longitude } = data;
-      // Fetch user data from UserModel
-      console.log(student_id);
       
-      // const user = await StudentModel.findOne({ student_id: String(student_id) });
-      // if (!user) {
-      //   console.error('User not found');
-      //   return;
-      // }
+      // Store WebSocket connection for the student_id
+      clientsMap.set(student_id, ws);
 
-      // if (user.isLocationAccess) {
-      //   // Set the user's location into the cache with a TTL of 600 seconds
-      //   await cacheHandler.setLocation(username, { username, latitude, longitude }, 600);
-      // }
+      // Example user data (from test data)
+      const user = studentData;
 
-
-      //test  
-    const user = studentData;
-
-    clientsMap.set(student_id, ws);
-
+      // Save the location in cache
       await cacheHandler.setLocation(student_id, { student_id, latitude, longitude }, 600);
-      // Get the friends' data
+
+      // Get friends' data and their locations from the cache
       const friendsData = await friendDataHandler.getFriends(user.student_id);
       const latitudeData: { student_id: string, latitude: number, longitude: number }[] = [];
 
-      // Fetch each friend's location from the cache
       for (const friend of friendsData) {
         const friendLocation = await cacheHandler.getLocation(friend.student_id);
         if (friendLocation) {
@@ -71,18 +61,19 @@ wss.on('connection', (ws) => {
           });
         }
       }
-      console.log(`latitude frnds data ${latitudeData}`);
-      
-      // Add location update to the global queue
+      console.log(`Friends' locations data: ${JSON.stringify(latitudeData)}`);
+
+      // Enqueue location update for processing
       await queueHandler.enqueueLocationUpdate(student_id, latitude, longitude, latitudeData);
-      console.log('Location update with friends\' data added to the global queue');
+      console.log('Location update with friends data added to the global queue');
     } catch (error) {
       console.error('Error handling location update:', error);
     }
   });
+
   ws.on('close', () => {
     console.log('A user disconnected');
-    // Clean up the client map when the WebSocket closes
+    // Clean up when a user disconnects
     clientsMap.forEach((client, student_id) => {
       if (client === ws) {
         clientsMap.delete(student_id);
@@ -91,26 +82,23 @@ wss.on('connection', (ws) => {
   });
 });
 
-// Process the global queue every second
+// Start processing the queue every second
 setInterval(async () => {
   try {
     const queueSize = await queueHandler.getQueueSize();
     if (queueSize > 0) {
       console.log(`Queue size: ${queueSize} items waiting for processing`);
 
-      // Dequeue location update and send location data to the user along with friends' location
       const locationData = await queueHandler.dequeueLocationUpdate();
       if (locationData) {
-        // Get the WebSocket client corresponding to the student_id
         const client = clientsMap.get(locationData.student_id);
 
         if (client && client.readyState === WebSocket.OPEN) {
-          // Send the location data to the client
+          console.log(`Sending location update to client: ${JSON.stringify(locationData)}`);
           client.send(JSON.stringify(locationData));
           console.log(`Sent location data to ${locationData.student_id}`);
-        } else {
-          console.log(`Client for student_id ${locationData.student_id} is not connected or ready`);
         }
+        
       }
     } else {
       console.log('No location updates in the queue');
@@ -118,8 +106,7 @@ setInterval(async () => {
   } catch (error) {
     console.error('Error processing location updates:', error);
   }
-}, LOCATION_UPDATE_INTERVAL);
-
+}, 1000); // Check every second
 
 // Start the server
 server.listen(PORT, () => {

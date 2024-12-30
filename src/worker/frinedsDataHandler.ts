@@ -1,3 +1,4 @@
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { StudentModel } from '../models/User';
 import { studentData } from '../testData/studentData';
 
@@ -33,7 +34,7 @@ import { studentData } from '../testData/studentData';
 //     }
 //   }
 // }
-
+/*
   async getFriends(student_id: string): Promise<{ student_id:string }[]> {
     try {
       const result = await StudentModel.aggregate([
@@ -77,7 +78,7 @@ import { studentData } from '../testData/studentData';
     } catch (error) {
       console.error('Error fetching friends:', error);
       throw new Error(`Error fetching friends for student_id ${student_id}: ${(error)}`);
-
+*/
 class FriendDataHandler {
   async getFriends(student_id: string) {
     if (student_id === studentData.student_id) {
