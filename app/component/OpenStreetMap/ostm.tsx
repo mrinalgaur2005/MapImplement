@@ -12,32 +12,50 @@ interface MarkerData {
   student_id: string
   latitude: number
   longitude: number
+  address?: string // Added field for reverse geocoding results
 }
 
 const OpenStreetmap: React.FC = () => {
-  const [center, setCenter] = useState<LatLngExpression>({ lat: 30.7652305, lng: 76.7846207 }) // Default fallback location
+  const [center, setCenter] = useState<LatLngExpression>({ lat: 30.7652305, lng: 76.7846207 })
   const [userLocation, setUserLocation] = useState<LatLngExpression | null>(null)
   const [markers, setMarkers] = useState<MarkerData[]>([])
-  const [studentId, setStudentId] = useState<string>('') // Replace with actual user ID logic
-  const wsRef = useRef<WebSocket | null>(null) // Ref to track WebSocket instance
+  const [studentId, setStudentId] = useState<string>('')
+  const wsRef = useRef<WebSocket | null>(null)
 
   const ZOOM_LEVEL = 17
+  const GEOAPIFY_API_KEY = 'fd046e839e5145f18458ebaefbe65a30'
+
+  // Fetch address from Geoapify Reverse Geocoding API
+  const fetchAddress = async (latitude: number, longitude: number) => {
+    try {
+      const response = await fetch(
+        `https://api.geoapify.com/v1/geocode/reverse?lat=${latitude}&lon=${longitude}&apiKey=${GEOAPIFY_API_KEY}`
+      )
+      const result = await response.json()
+      if (result.features && result.features.length > 0) {
+        return result.features[0].properties.formatted // Return the formatted address
+      }
+      return 'Address not found'
+    } catch (error) {
+      console.error('Error fetching address:', error)
+      return 'Error fetching address'
+    }
+  }
 
   // WebSocket setup
   useEffect(() => {
     const socket = new WebSocket('ws://localhost:3000')
-    wsRef.current = socket // Assign the WebSocket instance to the ref
+    wsRef.current = socket
 
     socket.onopen = () => {
       console.log('Connected to WebSocket server')
     }
 
-    socket.onmessage = (event) => {
+    socket.onmessage = async (event) => {
       try {
         const data = JSON.parse(event.data)
 
         if (data.type === 'activeUsers') {
-          // Handle active users broadcast
           const activeUserIds = data.activeUsers
           setMarkers((prevMarkers) =>
             prevMarkers.filter((marker) => activeUserIds.includes(marker.student_id))
@@ -45,14 +63,14 @@ const OpenStreetmap: React.FC = () => {
         }
 
         if (data.latitudeData && data.latitudeData.length !== 0) {
-          // Handle latitude data (friends' locations)
-          const markersWithUUID = data.latitudeData.map((marker: any) => ({
-            ...marker,
-            uuid: uuidv4(), // Add a unique UUID for each marker
-          }))
+          const markersWithUUID = await Promise.all(
+            data.latitudeData.map(async (marker: any) => {
+              const address = await fetchAddress(marker.latitude, marker.longitude)
+              return { ...marker, uuid: uuidv4(), address }
+            })
+          )
 
           setMarkers((prevMarkers) => {
-            // Avoid duplicates
             const newMarkers = markersWithUUID.filter(
               (newMarker) => !prevMarkers.some((prevMarker) => prevMarker.student_id === newMarker.student_id)
             )
@@ -68,15 +86,14 @@ const OpenStreetmap: React.FC = () => {
       console.error('WebSocket error:', error)
     }
 
-    // Cleanup WebSocket on component unmount
     return () => {
       if (socket.readyState === WebSocket.OPEN) {
         socket.close()
       }
     }
-  }, []) // Run once on component mount
+  }, [])
 
-  // Handle user's geolocation with continuous updates (watch position)
+  // Handle user's geolocation with continuous updates
   useEffect(() => {
     const storedStudentId = localStorage.getItem('studentId') || '23104073'
     setStudentId(storedStudentId)
@@ -86,7 +103,6 @@ const OpenStreetmap: React.FC = () => {
       setUserLocation(userLoc)
       setCenter(userLoc)
 
-      // Send location data if WebSocket is open and ready
       if (wsRef.current?.readyState === WebSocket.OPEN) {
         const locationData = {
           student_id: storedStudentId,
@@ -108,7 +124,7 @@ const OpenStreetmap: React.FC = () => {
         maximumAge: 0,
       })
     }
-  }, [studentId]) // Depend on studentId only
+  }, [studentId])
 
   // Custom marker icon
   const customIcon = new L.Icon({
@@ -125,17 +141,16 @@ const OpenStreetmap: React.FC = () => {
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
       />
 
-      {/* Render markers for friends */}
       {markers.map((marker) => (
         <Marker key={marker.uuid} position={[marker.latitude, marker.longitude]} icon={customIcon}>
           <Popup>
             Friend ID: {marker.student_id} <br />
-            Latitude: {marker.latitude}, Longitude: {marker.longitude}
+            Latitude: {marker.latitude}, Longitude: {marker.longitude} <br />
+            Address: {marker.address || 'Fetching...'}
           </Popup>
         </Marker>
       ))}
 
-      {/* Render user's own location */}
       {userLocation && (
         <Marker position={userLocation} icon={customIcon}>
           <Popup>

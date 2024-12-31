@@ -79,17 +79,32 @@ wss.on('connection', (ws) => {
   });
 });
 
-// Broadcast active users to all clients
 const broadcastActiveUsers = () => {
   const activeUsers = Array.from(clientsMap.keys());
+  const message = JSON.stringify({ type: 'activeUsers', activeUsers });
+
   clientsMap.forEach((client) => {
     if (client.readyState === WebSocket.OPEN) {
-      client.send(JSON.stringify({ type: 'activeUsers', activeUsers }));
+      client.send(message);
     }
   });
 };
 
-// Process the global queue every second
+
+wss.on('connection', (ws) => {
+  ws.on('close', () => {
+    clientsMap.forEach((client, student_id) => {
+      if (client === ws) {
+        clientsMap.delete(student_id);
+        broadcastActiveUsers(); 
+      }
+    });
+  });
+
+  broadcastActiveUsers(); 
+});
+
+
 setInterval(async () => {
   try {
     const queueSize = await queueHandler.getQueueSize();
