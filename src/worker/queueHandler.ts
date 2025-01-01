@@ -54,6 +54,14 @@ class QueueHandler {
       return 0;
     }
   }
+  async clearQueue(): Promise<void> {
+    try {
+      await this.redisClient.del(this.queueKey);
+      console.log('Queue has been cleared.');
+    } catch (error) {
+      console.error('Error clearing queue:', error);
+    }
+  }
 }
 
 export default QueueHandler;

@@ -154,4 +154,4 @@ const OpenStreetmap: React.FC = () => {
   )
 }
 
-export default OpenStreetmap
+export default OpenStreetmap;
