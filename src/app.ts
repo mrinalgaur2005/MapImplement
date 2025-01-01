@@ -19,10 +19,10 @@ const queueHandler = new QueueHandler();
 const friendDataHandler = new FriendDataHandler();
 const cacheHandler = new CacheHandler();
 
-const LOCATION_UPDATE_INTERVAL = 1000; // Check every second
-const PORT = 3000; // Server port
+const LOCATION_UPDATE_INTERVAL = 1000;
+const PORT = 3000;
 
-const clientsMap: Map<string, WebSocket> = new Map(); // Map for storing WebSocket with student ID
+const clientsMap: Map<string, WebSocket> = new Map(); 
 
 app.use(express.json());
 
@@ -35,27 +35,24 @@ wss.on('connection', (ws) => {
       const data: LocationData = JSON.parse(message.toString());
       const { student_id, latitude, longitude } = data;
 
-      // Save client WebSocket
       clientsMap.set(student_id, ws);
 
-      // Set the user's location in the cache
       await cacheHandler.setLocation(student_id, { student_id, latitude, longitude }, 600);
 
       // Get friends' data
       const friendsData = await friendDataHandler.getFriends(student_id);
-      const latitudeData: { student_id: string; latitude: number; longitude: number }[] = [];
+      const friendsLocations = await Promise.all(
+        friendsData.map(async (friend) => {
+          const location = await cacheHandler.getLocation(friend.student_id);
+          return location ? { student_id: friend.student_id, latitude: location.latitude, longitude: location.longitude } : null;
+        })
+      );
 
-      // Fetch each friend's location from the cache
-      for (const friend of friendsData) {
-        const friendLocation = await cacheHandler.getLocation(friend.student_id);
-        if (friendLocation) {
-          latitudeData.push({
-            student_id: friend.student_id,
-            latitude: friendLocation.latitude,
-            longitude: friendLocation.longitude,
-          });
-        }
-      }
+      const latitudeData = friendsLocations.filter(Boolean) as {
+        student_id: string;
+        latitude: number;
+        longitude: number;
+      }[];
 
       console.log(`Friends' location data: ${JSON.stringify(latitudeData)}`);
 
@@ -69,7 +66,6 @@ wss.on('connection', (ws) => {
 
   ws.on('close', () => {
     console.log('A user disconnected');
-    // Remove the client from the map
     clientsMap.forEach((client, student_id) => {
       if (client === ws) {
         clientsMap.delete(student_id);
@@ -79,39 +75,12 @@ wss.on('connection', (ws) => {
   });
 });
 
-const broadcastActiveUsers = () => {
-  const activeUsers = Array.from(clientsMap.keys());
-  const message = JSON.stringify({ type: 'activeUsers', activeUsers });
-
-  clientsMap.forEach((client) => {
-    if (client.readyState === WebSocket.OPEN) {
-      client.send(message);
-    }
-  });
-};
-
-
-wss.on('connection', (ws) => {
-  ws.on('close', () => {
-    clientsMap.forEach((client, student_id) => {
-      if (client === ws) {
-        clientsMap.delete(student_id);
-        broadcastActiveUsers(); 
-      }
-    });
-  });
-
-  broadcastActiveUsers(); 
-});
-
-
 setInterval(async () => {
   try {
     const queueSize = await queueHandler.getQueueSize();
     if (queueSize > 0) {
       console.log(`Queue size: ${queueSize} items waiting for processing`);
 
-      // Dequeue location update and send location data to the user
       const locationData = await queueHandler.dequeueLocationUpdate();
       if (locationData) {
         // Get the WebSocket client corresponding to the student_id
@@ -127,15 +96,11 @@ setInterval(async () => {
     } else {
       console.log('No location updates in the queue');
     }
-
-    // Broadcast active users
-    broadcastActiveUsers();
   } catch (error) {
     console.error('Error processing location updates:', error);
   }
 }, LOCATION_UPDATE_INTERVAL);
 
-// Start the server
 server.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
 });
