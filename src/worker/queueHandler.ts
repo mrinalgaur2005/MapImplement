@@ -27,7 +27,7 @@ class QueueHandler {
       if (item) {
         const locationUpdate = JSON.parse(item);
         const currentTime = Date.now();
-        const timeout =  5 * 1000;//5sec timeout only for test
+        const timeout =  10 * 1000;//5sec timeout only for test
 
         if (currentTime - locationUpdate.timestamp >= timeout) {
           return locationUpdate;

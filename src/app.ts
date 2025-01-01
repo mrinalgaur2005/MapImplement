@@ -20,7 +20,7 @@ const queueHandler = new QueueHandler();
 const friendDataHandler = new FriendDataHandler();
 const cacheHandler = new CacheHandler();
 
-const LOCATION_UPDATE_INTERVAL = 1000; // Check every second
+const LOCATION_UPDATE_INTERVAL = 500; // Check every second
 const PORT = 3000; // Server port
 
 const clientsMap: Map<string, WebSocket> = new Map(); //map for storing WebSocket with SID
@@ -50,7 +50,7 @@ wss.on('connection', (ws) => {
       // }
 
 
-      //test  
+    //test  
     const user = studentData;
 
     clientsMap.set(student_id, ws);
@@ -58,19 +58,22 @@ wss.on('connection', (ws) => {
       await cacheHandler.setLocation(student_id, { student_id, latitude, longitude }, 600);
       // Get the friends' data
       const friendsData = await friendDataHandler.getFriends(user.student_id);
-      const latitudeData: { student_id: string, latitude: number, longitude: number }[] = [];
-
-      // Fetch each friend's location from the cache
-      for (const friend of friendsData) {
-        const friendLocation = await cacheHandler.getLocation(friend.student_id);
-        if (friendLocation) {
-          latitudeData.push({
-            student_id: friend.student_id,
-            latitude: friendLocation.latitude,
-            longitude: friendLocation.longitude,
-          });
-        }
-      }
+      const friendsLocations = await Promise.all(
+        friendsData.map(async (friend) => {
+          const location = await cacheHandler.getLocation(friend.student_id);
+          return location
+            ? { student_id: friend.student_id, latitude: location.latitude, longitude: location.longitude }
+            : null;
+        })
+      );
+      
+      // Filter out any null values
+      const latitudeData = friendsLocations.filter((location) => location !== null) as {
+        student_id: string;
+        latitude: number;
+        longitude: number;
+      }[];
+      
       console.log(`latitude frnds data ${latitudeData}`);
       
       // Add location update to the global queue

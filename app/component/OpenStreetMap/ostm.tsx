@@ -5,31 +5,29 @@ import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet'
 import { LatLngExpression } from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import L from 'leaflet'
-import { v4 as uuidv4 } from 'uuid'
 
 interface MarkerData {
-  uuid: string
   student_id: string
   latitude: number
   longitude: number
 }
 
 const OpenStreetmap: React.FC = () => {
-  const [center, setCenter] = useState<LatLngExpression>({ lat: 30.7652305, lng: 76.7846207 }) 
+  const [center, setCenter] = useState<LatLngExpression>({ lat: 30.7652305, lng: 76.7846207 })
   const [userLocation, setUserLocation] = useState<LatLngExpression | null>(null)
-  const [markers, setMarkers] = useState<MarkerData[]>([])
-  const [studentId, setStudentId] = useState<string>('') 
-  const wsRef = useRef<WebSocket | null>(null) 
-
-  const userLocationRef = useRef<LatLngExpression | null>(null); // UseRef to store userLocation
+  const [markers, setMarkers] = useState<Record<string, MarkerData>>({})
+  const [studentId, setStudentId] = useState<string>('23104073')
+  const wsRef = useRef<WebSocket | null>(null)
+  const userLocationRef = useRef<LatLngExpression | null>(null)
   const ZOOM_LEVEL = 17
 
   useEffect(() => {
     const socket = new WebSocket('ws://localhost:3000')
-    wsRef.current = socket 
+    wsRef.current = socket
 
     socket.onopen = () => {
       console.log('Connected to WebSocket server')
+      sendLocation() // Send initial location
     }
 
     socket.onmessage = (event) => {
@@ -38,28 +36,25 @@ const OpenStreetmap: React.FC = () => {
         const data = JSON.parse(event.data)
 
         if (data.latitudeData.length !== 0) {
-          const markersWithUUID = data.latitudeData.map((marker: any) => ({
-            ...marker,
-            uuid: uuidv4(),
-          }))
-          setMarkers((prevMarkers) => [...prevMarkers, ...markersWithUUID])
-
-          console.log(`ws state is ${wsRef.current?.readyState}`);
-          
-          console.log(userLocation);
-
-          // Ensure the location is available before sending
-          if (wsRef.current?.readyState === WebSocket.OPEN && userLocationRef.current) {
-            const locationData = {
-              student_id: studentId,
-              latitude: userLocationRef.current.lat,
-              longitude: userLocationRef.current.lng,
+          const updatedMarkers: Record<string, MarkerData> = {}
+          data.latitudeData.forEach((marker: any) => {
+            updatedMarkers[marker.student_id] = {
+              student_id: marker.student_id,
+              latitude: marker.latitude,
+              longitude: marker.longitude,
             }
-            wsRef.current.send(JSON.stringify(locationData))
-            console.log('Sent location data after:', locationData)
-          } else {
-            console.log('User location is not yet available')
-          }
+          })
+
+          setMarkers((prevMarkers) => ({
+            ...prevMarkers,
+            ...updatedMarkers,
+          }))
+
+          // Trigger the next location send
+          sendLocation()
+        }
+        else{
+          sendLocation();
         }
       } catch (error) {
         console.error('Error parsing WebSocket message:', error)
@@ -75,7 +70,7 @@ const OpenStreetmap: React.FC = () => {
         socket.close()
       }
     }
-  }, [studentId]) 
+  }, [])
 
   useEffect(() => {
     const storedStudentId = localStorage.getItem('studentId') || '23104073'
@@ -83,21 +78,12 @@ const OpenStreetmap: React.FC = () => {
 
     const geoSuccess = (position: GeolocationPosition) => {
       const userLoc = { lat: position.coords.latitude, lng: position.coords.longitude }
-      console.log(userLoc)
       setUserLocation(userLoc)
-      userLocationRef.current = userLoc; // Update the userLocationRef
-
+      userLocationRef.current = userLoc
       setCenter(userLoc)
 
-      if (wsRef.current?.readyState === WebSocket.OPEN) {
-        const locationData = {
-          student_id: storedStudentId,
-          latitude: position.coords.latitude,
-          longitude: position.coords.longitude,
-        }
-        wsRef.current.send(JSON.stringify(locationData))
-        console.log('Sent location data:', locationData)
-      }
+      // Send initial location data if socket is open
+      sendLocation()
     }
 
     const geoError = () => {
@@ -113,6 +99,20 @@ const OpenStreetmap: React.FC = () => {
     }
   }, [])
 
+  const sendLocation = () => {
+    if (wsRef.current?.readyState === WebSocket.OPEN && userLocationRef.current) {
+      const locationData = {
+        student_id: studentId,
+        latitude: userLocationRef.current.lat,
+        longitude: userLocationRef.current.lng,
+      }
+      wsRef.current.send(JSON.stringify(locationData))
+      console.log('Sent location data:', locationData)
+    } else {
+      console.warn('WebSocket not open or user location not available')
+    }
+  }
+
   const customIcon = new L.Icon({
     iconUrl: 'https://www.maptive.com/wp-content/uploads/2020/10/Marker-Color-_-Grouping-Tool-2.svg',
     iconSize: [32, 32],
@@ -127,9 +127,13 @@ const OpenStreetmap: React.FC = () => {
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
       />
 
-      {/* Render markers for friends */}
-      {markers.map((marker) => (
-        <Marker key={marker.uuid} position={[marker.latitude, marker.longitude]} icon={customIcon}>
+      {/* Render markers */}
+      {Object.values(markers).map((marker) => (
+        <Marker
+          key={marker.student_id}
+          position={[marker.latitude, marker.longitude]}
+          icon={customIcon}
+        >
           <Popup>
             Friend ID: {marker.student_id} <br />
             Latitude: {marker.latitude}, Longitude: {marker.longitude}
@@ -137,7 +141,7 @@ const OpenStreetmap: React.FC = () => {
         </Marker>
       ))}
 
-      {/* Render user's own location */}
+      {/* Render user's location */}
       {userLocation && (
         <Marker position={userLocation} icon={customIcon}>
           <Popup>
