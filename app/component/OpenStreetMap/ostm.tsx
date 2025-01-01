@@ -10,9 +10,11 @@ interface MarkerData {
   student_id: string
   latitude: number
   longitude: number
+  address?: string // Added field for reverse geocoding results
 }
 
 const OpenStreetmap: React.FC = () => {
+  const [center, setCenter] = useState<LatLngExpression>({ lat: 30.7652305, lng: 76.7846207 })
   const [center, setCenter] = useState<LatLngExpression>({ lat: 30.7652305, lng: 76.7846207 })
   const [userLocation, setUserLocation] = useState<LatLngExpression | null>(null)
   const [markers, setMarkers] = useState<Record<string, MarkerData>>({})
@@ -24,15 +26,15 @@ const OpenStreetmap: React.FC = () => {
   useEffect(() => {
     const socket = new WebSocket('ws://localhost:3000')
     wsRef.current = socket
+    wsRef.current = socket
 
     socket.onopen = () => {
       console.log('Connected to WebSocket server')
       sendLocation() // Send initial location
     }
 
-    socket.onmessage = (event) => {
+    socket.onmessage = async (event) => {
       try {
-        console.log('Received data:', event.data)
         const data = JSON.parse(event.data)
 
         if (data.latitudeData.length !== 0) {
@@ -68,8 +70,10 @@ const OpenStreetmap: React.FC = () => {
     return () => {
       if (socket.readyState === WebSocket.OPEN) {
         socket.close()
+        socket.close()
       }
     }
+  }, [])
   }, [])
 
   useEffect(() => {
@@ -136,7 +140,8 @@ const OpenStreetmap: React.FC = () => {
         >
           <Popup>
             Friend ID: {marker.student_id} <br />
-            Latitude: {marker.latitude}, Longitude: {marker.longitude}
+            Latitude: {marker.latitude}, Longitude: {marker.longitude} <br />
+            Address: {marker.address || 'Fetching...'}
           </Popup>
         </Marker>
       ))}
