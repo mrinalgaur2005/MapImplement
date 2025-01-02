@@ -1,14 +1,14 @@
+import dbConnect from '../db/connectDb';
 import { StudentModel } from '../models/User';
-import { studentData } from '../testData/studentData';
 
 class FriendDataHandler {
-
   async getFriends(student_id: string): Promise<{ student_id: string, name: string }[]> {
+    await dbConnect();
     try {
       const result = await StudentModel.aggregate([
         {
           $match: {
-            student_id,
+            student_id: student_id,
           },
         },
         {
@@ -29,13 +29,6 @@ class FriendDataHandler {
           },
         },
         {
-          $project: {
-            friends: {
-              $ifNull: ["$friends", []],
-            },
-          },
-        },
-        {
           $unwind: {
             path: "$friends",
             preserveNullAndEmptyArrays: true,
@@ -45,19 +38,14 @@ class FriendDataHandler {
           $replaceRoot: { newRoot: "$friends" },
         },
       ]);
-        if (result.length === 0 || result[0]?.friends.length === 0) {
-        return [];
-      }
+        return result.length > 0 ? result : [];
   
-      return result;
-      
     } catch (error) {
-      console.error('Error fetching friends:', error);
-      throw new Error(`Error fetching friends for student_id ${student_id}: ${error}`);
+      console.error("Error fetching friends:", error);
+      throw new Error(`Error fetching friends for student_id ${student_id}: ${(error as Error).message}`);
     }
   }
-  
-}
+}  
 
 export default FriendDataHandler;
 

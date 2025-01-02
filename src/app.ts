@@ -2,7 +2,6 @@ import express from "express";
 import { createServer } from "http";
 import { WebSocket, WebSocketServer } from "ws";
 import dotenv from "dotenv";
-import dbConnect from "./db/connectDb";
 import QueueHandler from "./worker/queueHandler";
 import FriendDataHandler from "./worker/frinedsDataHandler";
 import CacheHandler from "./worker/cacheHandler";
@@ -30,7 +29,6 @@ wss.on("connection", (ws) => {
 
   ws.on("message", async (message) => {
     try {
-      await dbConnect();
       const data: LocationData = JSON.parse(message.toString());
       const { student_id, latitude, longitude } = data;
 
