@@ -1,65 +1,58 @@
-import { createClient } from 'redis';
-
+import { createClient } from "redis";
+import {WebSocket} from "ws";
 class QueueHandler {
   private redisClient;
-  private queueKey = 'locationQueue';
+  private queueKey = "locationQueue";
+
   constructor() {
     this.redisClient = createClient();
-    this.redisClient.connect().catch((err) => console.error('Redis connection error:', err));
+    this.redisClient.connect().catch((err) => console.error("Redis connection error:", err));
   }
 
-  // Enqueue a location update with timestamp and LatitudeData for friends
-  async enqueueLocationUpdate(student_id: string, latitude: number, longitude: number, latitudeData: { student_id: string, latitude: number, longitude: number }[]): Promise<void> {
+  async enqueueLocationUpdate(
+    student_id: string,
+    latitude: number,
+    longitude: number,
+    latitudeData: { student_id: string; latitude: number; longitude: number }[]
+  ): Promise<void> {
     try {
       const timestamp = Date.now();
       const locationUpdate = JSON.stringify({ student_id, latitude, longitude, latitudeData, timestamp });
       await this.redisClient.rPush(this.queueKey, locationUpdate);
-      console.log(`Location update for ${student_id} added to the global queue with timestamp ${timestamp}`);
     } catch (error) {
-      console.error('Error enqueuing location update:', error);
+      console.error("Error enqueuing location update:", error);
     }
   }
 
-  // Dequeue a location update and process it if it's older than 5 minutes
-  async dequeueLocationUpdate(): Promise<{ student_id: string; latitude: number; longitude: number; latitudeData: { student_id: string, latitude: number, longitude: number }[] } | null> {
+  async processQueueBatch(batchSize: number, clientsMap: Map<string, WebSocket>): Promise<void> {
     try {
-      const item = await this.redisClient.lPop(this.queueKey);
-      if (item) {
-        const locationUpdate = JSON.parse(item);
-        const currentTime = Date.now();
-        const timeout =  10 * 1000;//5sec timeout only for test
+      const batch = await this.redisClient.lRange(this.queueKey, 0, batchSize - 1);
+      if (batch.length > 0) {
+        await this.redisClient.lTrim(this.queueKey, batchSize, -1);
 
-        if (currentTime - locationUpdate.timestamp >= timeout) {
-          return locationUpdate;
-        } else {
-          await this.redisClient.rPush(this.queueKey, item);
-          return null;
-        }
-      } else {
-        return null;
+        batch.forEach((item) => {
+          const locationUpdate = JSON.parse(item);
+          const client = clientsMap.get(locationUpdate.student_id);
+
+          if (client && client.readyState === WebSocket.OPEN) {
+            client.send(JSON.stringify(locationUpdate));
+            console.log(`Sent location data to ${locationUpdate.student_id}`);
+          } else {
+            console.log(`Client for ${locationUpdate.student_id} is not connected`);
+          }
+        });
       }
     } catch (error) {
-      console.error('Error dequeuing location update:', error);
-      return null;
+      console.error("Error processing queue batch:", error);
     }
   }
 
-  // Get the current size of the queue
   async getQueueSize(): Promise<number> {
     try {
-      const size = await this.redisClient.lLen(this.queueKey);
-      return size;
+      return await this.redisClient.lLen(this.queueKey);
     } catch (error) {
-      console.error('Error getting queue size:', error);
+      console.error("Error getting queue size:", error);
       return 0;
-    }
-  }
-  async clearQueue(): Promise<void> {
-    try {
-      await this.redisClient.del(this.queueKey);
-      console.log('Queue has been cleared.');
-    } catch (error) {
-      console.error('Error clearing queue:', error);
     }
   }
 }
