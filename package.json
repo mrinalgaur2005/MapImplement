@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "start-server": "ts-node src/app.ts"
+  "start-server": "node --max-old-space-size=4096 -r ts-node/register src/app.ts"
   },
   "dependencies": {
     "@fortawesome/fontawesome-svg-core": "^6.7.2",
