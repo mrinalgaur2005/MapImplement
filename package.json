@@ -3,11 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev --turbopack -p 3001",
-    "start-server": "ts-node src/app.ts",
-    "build": "next build",
-    "start": "next start",
-    "lint": "next lint"
+    "start-server": "ts-node src/app.ts"
   },
   "dependencies": {
     "@fortawesome/fontawesome-svg-core": "^6.7.2",
