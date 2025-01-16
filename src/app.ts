@@ -26,7 +26,7 @@ const friendDataHandler = new FriendDataHandler();
 const cacheHandler = new CacheHandler();
 
 const LOCATION_UPDATE_INTERVAL = 1000;
-const PORT = 443; // Default port for HTTPS/WSS
+const PORT = 8443; // Default port for HTTPS/WSS
 
 const clientsMap: Map<string, WebSocket> = new Map();
 
@@ -97,6 +97,6 @@ setInterval(async () => {
 }, LOCATION_UPDATE_INTERVAL);
 
 // Start server
-server.listen(PORT, () => {
-  console.log(`Secure WebSocket server running on https://localhost:${PORT}`);
+server.listen(PORT,"0.0.0.0", () => {
+  console.log(`Secure WebSocket server running on https://0.0.0.0:${PORT}`);
 });
