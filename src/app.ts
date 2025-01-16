@@ -1,9 +1,7 @@
 import express from "express";
-import { createServer } from "https"; // Use https instead of http
+import { createServer } from "http";
 import { WebSocket, WebSocketServer } from "ws";
 import dotenv from "dotenv";
-import fs from "fs";
-import path from "path";
 import QueueHandler from "./worker/queueHandler";
 import FriendDataHandler from "./worker/frinedsDataHandler";
 import CacheHandler from "./worker/cacheHandler";
@@ -12,13 +10,7 @@ import { LocationData } from "./types/locationData";
 dotenv.config();
 
 const app = express();
-
-// Load SSL/TLS certificate and key
-const server = createServer({
-  key: fs.readFileSync(path.resolve("/home/mrinalgaur2005/MapImplement/privkey.pem")),
-  cert: fs.readFileSync(path.resolve("/home/mrinalgaur2005/MapImplement/cert.pem")),
-});
-
+const server = createServer(app);
 const wss = new WebSocketServer({ server });
 
 const queueHandler = new QueueHandler();
@@ -26,13 +18,12 @@ const friendDataHandler = new FriendDataHandler();
 const cacheHandler = new CacheHandler();
 
 const LOCATION_UPDATE_INTERVAL = 1000;
-const PORT = 8443; // Default port for HTTPS/WSS
+const PORT = 3000;
 
 const clientsMap: Map<string, WebSocket> = new Map();
 
 app.use(express.json());
 
-// WebSocket server connection
 wss.on("connection", (ws) => {
   console.log("A user connected");
 
@@ -49,9 +40,10 @@ wss.on("connection", (ws) => {
       const friendsIds = friends.map((friend) => friend.student_id);
       console.log(`hello ${friendsIds}`);
       
-      if (friends.length === 0) {
+
+      if(friends.length === 0){
         await queueHandler.enqueueLocationUpdate(student_id, latitude, longitude, []);
-      } else {
+      }else{
         const friendsLocations = await cacheHandler.getFriendsLocations(friendsIds);
         console.log(`Friends' location data: ${JSON.stringify(friendsLocations)}`);
 
@@ -79,7 +71,6 @@ wss.on("connection", (ws) => {
   });
 });
 
-// Process queue in intervals
 setInterval(async () => {
   try {
     const queueSize = await queueHandler.getQueueSize();
@@ -96,7 +87,6 @@ setInterval(async () => {
   }
 }, LOCATION_UPDATE_INTERVAL);
 
-// Start server
-server.listen(PORT,"0.0.0.0", () => {
-  console.log(`Secure WebSocket server running on https://0.0.0.0:${PORT}`);
+server.listen(PORT, "0.0.0.0", () => {
+  console.log(`Server running on http://0.0.0.0:${PORT}`);
 });
