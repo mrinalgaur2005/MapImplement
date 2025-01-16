@@ -15,8 +15,8 @@ const app = express();
 
 // Load SSL/TLS certificate and key
 const server = createServer({
-  key: fs.readFileSync(path.resolve("./privkey.pem")),
-  cert: fs.readFileSync(path.resolve("./cert.pem")),
+  key: fs.readFileSync(path.resolve("/home/mrinalgaur2005/MapImplement/privkey.pem")),
+  cert: fs.readFileSync(path.resolve("/home/mrinalgaur2005/MapImplement/cert.pem")),
 });
 
 const wss = new WebSocketServer({ server });
